@@ -21,6 +21,14 @@ Family is a decentralized healthcare and fertility platform that connects patien
 - Veramo, Verida session, Pinata (IPFS)
 - Foundry (Solidity) for smart contracts
 
+## Project structure at higher level
+- src/app — Next.js App Router pages (booking, dashboard, forms, hospital)
+- src/components — UI components (NFT modals, forms, etc.)
+- src/app/contexts — RainbowKit/Wagmi setup
+- src/contract — Web3 provider and addresses
+- src/lib — Integrations (Pinata, Verida, handlers)
+- public/images — static assets
+
 ## Prerequisites
 - Node.js 18+ (or 20+ recommended)
 - PNPM 8+ (recommended) or npm/yarn
@@ -31,6 +39,87 @@ Hedera Testnet network settings:
 - Chain ID: 296
 - Symbol: HBAR
 - Explorer: https://hashscan.io/testnet
+
+
+## Family System Architecture
+
+```
++------------------------------------------------------------------------------------+
+|                                   Browser (Next.js)                                |
+| - src/app pages & UI components (Header, forms, modals, FertilityAI)               |
++------------------------------+------------------------------+----------------------+
+                               |                              |
+                               v                              v
++------------------------------+------------------------------+      +---------------+
+| RainbowKit + Wagmi + viem (wallet connect, writeContract)  |      | Next.js API  |
+| src/app/contexts/rainbowkit.tsx                            |      | Routes       |
++------------------------------+------------------------------+      | /api/*       |
+                               |                                     +-------+------+
+                               |                                             |
+                               v                                             v
++-------------------------------------------------------------+     +-----------------------------+
+| Hedera EVM (HashIO RPC) — Smart Contracts (Foundry)         |     | External Services           |
+| Family-smartContract/smartContract:                         |     | - Groq LLM (LangChain)      |
+| - HealthDataNFT, ProfileImageNFT, HRS, MarketPlace,         |     | - Pinata IPFS (uploads)     |
+|   Process/Factory, HospitalRequest/Factory, Reward, etc.    |     | - Verida API (optional)     |
++-------------------------------------------------------------+     | - CHEQD/Veramo (optional)   |
+                                                                      +-----------------------------+
+
+Notes:
+- Contract ABIs under src/contract/abi; web3 client in src/contract/web3.ts (env-driven addresses)
+- Transaction modal uses wagmi/viem; receipts may be fetched via /api/transaction/[hash]
+```
+
+## Data Flow Diagram
+
+```
++=========================================+
+| A) On-chain transaction (Hedera EVM)    |
++=========================================+
++--------------------+     +-------------------------------+     +------------------------------+
+| Client (Browser)   | --> | RainbowKit/Wagmi (sign+send)  | --> | Hedera EVM (HashIO RPC)      |
+| TransactionModal   |     | wagmi useWriteContract        |     | Smart Contracts (Foundry)     |
++---------+----------+     +---------------+---------------+     +---------------+--------------+
+          |                                  |                                     ^
+          |<---------------------------------+                                     |
+          |    tx hash / useWaitForTransactionReceipt (poll)                       |
+          |                                                                         |
++--------------------+     +--------------------------------------+     +------------------------------+
+| Client (optional)  | --> | Server: viem.getTransactionReceipt   | --> | Hedera EVM (receipt/logs)    |
+| Confirm receipt    |     |                                      |     | -> back to Client UI         |
++--------------------+     +--------------------------------------+     +------------------------------+
+
++==========================+
+| B) File upload to IPFS   |
++==========================+
++--------------------+     +----------------------+     +--------------------+     +------------------+
+| Client (Browser)   | --> | POST /api/file       | --> | Pinata IPFS        | --> | Gateway URL      |
+| formData(file)     |     | Pinata SDK           |     | -> CID             |     | -> Client uses   |
++--------------------+     +----------------------+     +--------------------+     +------------------+
+
++==========================+
+| C) AI chat               |
++==========================+
++--------------------+     +------------------------------+     +-----------------------+
+| Client (Browser)   | --> | POST /api/fertility-ai/chat  | --> | LangChain + Groq LLM  |
+| FertilityAI widget |     |                              |     | -> response to Client |
++--------------------+     +------------------------------+     +-----------------------+
+
++================================+
+| D) Identity (optional flows)   |
++================================+
++--------------------+  <----->  +----------------------+      and/or      +-------------------+
+| Client (Browser)   |           | Verida API           |                  | CHEQD / Veramo    |
+| DID/VC, calendar   |           | calendar/events/LLM  |                  | DID / VC verify   |
++--------------------+           +----------------------+                  +-------------------+
+
++==========================+
+| E) Recommendations       |
++==========================+
++--------------------+     +--------------------------------------+     +-------------------+
+| Client (Browser)   | --> | POST /api/fertility-ai/recommendations | --> | Filtered response |
++--------------------+     +--------------------------------------+     +-------------------+
+```
 
 ## Environment variables
 Create a .env.local file in the project root. Minimal variables to run the UI locally (placeholders are ok for non‑contract flows):
@@ -95,14 +184,6 @@ Contracts live under:
 Use Foundry:
 - RPC (foundry.toml): hedera_testnet = "https://testnet.hashio.io/api"
 - Deploy workflow: create a broadcast or script using your testnet private key and RPC (see Hedera docs for EVM deploys on testnet).
-
-## Project structure (high level)
-- src/app — Next.js App Router pages (booking, dashboard, forms, hospital)
-- src/components — UI components (NFT modals, forms, etc.)
-- src/app/contexts — RainbowKit/Wagmi setup
-- src/contract — Web3 provider and addresses
-- src/lib — Integrations (Pinata, Verida, handlers)
-- public/images — static assets
 
 ## Troubleshooting
 - Wallet not connecting or wrong network: ensure Hedera Testnet (chain 296) is selected.
