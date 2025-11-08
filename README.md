@@ -2,6 +2,10 @@
 
 Family is a decentralized healthcare and fertility platform that connects patients, clinics, and donors through secure on‑chain workflows. It uses Hedera Testnet (EVM) for trust, auditability, and programmable payments, with decentralized identity and optional AI assistance for care coordination.
 
+## [Hashgraph Developer Certificate](./StellaNamuyombadevcert.pdf)
+
+## [Pitch Deck](./Familypitch.pdf)
+
 ## Features
 - Patient booking and confirmations with on‑chain awareness
 - Hospital/clinic dashboard for managing requests and workflows
